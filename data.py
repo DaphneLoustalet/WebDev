@@ -1,29 +1,52 @@
 # Extract Calendar information from UCD Schedule Builder
 import undetected_chromedriver as uc
 import time
+import tkinter as tk
+from tkinter import messagebox
 from selenium import webdriver
-from selenium.webdriver.chrome.service import Service as ChromeService
+from selenium.webdriver.chrome.service import Service 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
 from selenium.common.exceptions import NoSuchElementException
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 
-# Step 1: Go to https://my.ucdavis.edu/schedulebuilder/index.cfm?termCode=202310&helpTour=
+def submit_password(driver):
+    user_password = entry.get()
+    password = driver.find_element(By.ID, "password")
+    password.send_keys(user_password)
+    root.destroy()
+
 un = input("Please type in your username: ")
-pw = input("Please type in your password: ")
-service = ChromeService(executable_path='C://Program Files//chromedriver.exe')
-driver = webdriver.Chrome(service=service)
-#chromeOptions = uc.ChromeOptions()
-#chromeOptions.add_argument("--headless")
-#driver = uc.Chrome(use_subprocess=True, options=chromeOptions)
+
+# Step 1: Go to the URL
 url = "https://my.ucdavis.edu/schedulebuilder/"
+service = Service('C://Program Files//chromedriver.exe')
+driver = webdriver.Chrome(service=service)
 driver.get(url)
+
 # Step 2: Login using UCD Credentials. If invalid, application access should be denied
 username = driver.find_element(By.ID, "username")
-username.send_keys(un) 
-password = driver.find_element(By.ID, "password")
-password.send_keys(pw)
+username.send_keys(un)
+
+# Create the tkinter password input window
+root = tk.Tk()
+root.title("Password Input")
+root.geometry("300x100")
+
+label = tk.Label(root, text="Enter your password:")
+label.pack()
+
+entry = tk.Entry(root, show="*")
+entry.pack()
+
+button = tk.Button(root, text="Submit", command=lambda: submit_password(driver))
+button.pack()
+
+root.mainloop()
+
+# Submit user entry
+# TODO: INCORRECT USER INPUT
 driver.find_element(By.NAME, "submit").click()
 
 wait = WebDriverWait(driver, 60)
@@ -95,15 +118,21 @@ wait.until(EC.url_contains('https://my.ucdavis.edu/schedulebuilder/index.cfm?ter
 
 #passtime
 classTitle = 'classTitle height-justified'
-classSchedule = 'meeting clearfix'
+classSchedule = 'float-left height-justified'
 
 div_elements = driver.find_elements(By.TAG_NAME, 'div')
 
 schedule = []
+listing = []
 
 for div_element in div_elements:
-    if div_element.get_attribute('name') == classTitle or div_element.get_attribute('name') == classSchedule:
-        schedule.append(div_element)
+    if div_element.get_attribute('class') == classTitle:
+        listing = div_element.text.split()
+        for i in range(len(listing)):
+            if (listing[i] == '-'):
+                break
+        if (i > 2):
+            schedule.append(div_element)
 
 # Step 4: Print out list to ensure accurate formatting
 for div in schedule:
