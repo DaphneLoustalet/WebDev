@@ -4,6 +4,7 @@ import time
 import tkinter as tk
 from tkinter import messagebox
 from selenium import webdriver
+from selenium.webdriver.common.action_chains import ActionChains
 from selenium.webdriver.chrome.service import Service 
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.wait import WebDriverWait
@@ -116,27 +117,36 @@ driver.find_element(By.XPATH,"//button[@class='btn btn-primary']").click()
 wait = WebDriverWait(driver, 15)
 wait.until(EC.url_contains('https://my.ucdavis.edu/schedulebuilder/index.cfm?termCode='))
 
-#passtime
-classTitle = 'classTitle height-justified'
-classSchedule = 'float-left height-justified'
+# Find all the buttons that show important details for each course
+buttons = driver.find_elements(By.XPATH, "//button[contains(@title, 'Show Course Important Details')]")
 
-div_elements = driver.find_elements(By.TAG_NAME, 'div')
+# formatting tracker for discarding extra and invalid entries
+tracker = 0
 
-schedule = []
-listing = []
+# Loop through the buttons and click them one by one
+for button in buttons:
+    if (tracker >= 6):
+        break
+    try:
+        # Scroll the element into view before clicking
+        driver.execute_script("arguments[0].scrollIntoView(true);", button)
 
-for div_element in div_elements:
-    if div_element.get_attribute('class') == classTitle:
-        listing = div_element.text.split()
-        for i in range(len(listing)):
-            if (listing[i] == '-'):
-                break
-        if (i > 2):
-            schedule.append(div_element)
+        # Click the button using JavaScript
+        driver.execute_script("arguments[0].click();", button)
 
-# Step 4: Print out list to ensure accurate formatting
-for div in schedule:
-    print(div.text)
+        # Wait for the details to become visible
+        wait = WebDriverWait(driver, 10)
+        wait.until(EC.visibility_of_element_located((By.XPATH, "//div[contains(@class, 'meeting')][contains(., 'Lecture')]")))
 
-# Step 5: When debugging is complete, return list for further processing
+        # Now you can scrape the lecture and discussion information
+        course_details = button.find_element(By.XPATH, "./ancestor::div[@class='CourseItem gray-shadow-border clearfix']")
+        course_title = course_details.find_element(By.CLASS_NAME, "classTitle").text
+        lecture_info = course_details.find_element(By.XPATH, ".//div[contains(@class, 'meeting')][contains(., 'Lecture')]").text
 
+        if (tracker % 2 == 1):
+            print("Course Title:", course_title)
+            print("Lecture Info:", lecture_info)
+        tracker += 1
+
+    except Exception as e:
+        print(f"Failed to process course: {e}")
