@@ -124,29 +124,34 @@ buttons = driver.find_elements(By.XPATH, "//button[contains(@title, 'Show Course
 tracker = 0
 
 # Loop through the buttons and click them one by one
-for button in buttons:
-    if (tracker >= 6):
-        break
-    try:
-        # Scroll the element into view before clicking
-        driver.execute_script("arguments[0].scrollIntoView(true);", button)
+with open("output.txt", "w") as file:
+    for button in buttons:
+        if (tracker >= 6):
+            break
+        try:
+            # Scroll the element into view before clicking
+            driver.execute_script("arguments[0].scrollIntoView(true);", button)
 
-        # Click the button using JavaScript
-        driver.execute_script("arguments[0].click();", button)
+            # Click the button using JavaScript
+            driver.execute_script("arguments[0].click();", button)
 
-        # Wait for the details to become visible
-        wait = WebDriverWait(driver, 10)
-        wait.until(EC.visibility_of_element_located((By.XPATH, "//div[contains(@class, 'meeting')][contains(., 'Lecture')]")))
+            # Wait for the details to become visible
+            wait = WebDriverWait(driver, 10)
+            wait.until(EC.visibility_of_element_located((By.XPATH, "//div[contains(@class, 'meeting')][contains(., 'Lecture')]")))
 
-        # Now you can scrape the lecture and discussion information
-        course_details = button.find_element(By.XPATH, "./ancestor::div[@class='CourseItem gray-shadow-border clearfix']")
-        course_title = course_details.find_element(By.CLASS_NAME, "classTitle").text
-        lecture_info = course_details.find_element(By.XPATH, ".//div[contains(@class, 'meeting')][contains(., 'Lecture')]").text
+            # Now you can scrape the lecture and discussion information
+            course_details = button.find_element(By.XPATH, "./ancestor::div[@class='CourseItem gray-shadow-border clearfix']")
+            course_title = course_details.find_element(By.CLASS_NAME, "classTitle").text
+            lecture_info = course_details.find_element(By.XPATH, ".//div[contains(@class, 'meeting')][contains(., 'Lecture')]").text
 
-        if (tracker % 2 == 1):
-            print("Course Title:", course_title)
-            print("Lecture Info:", lecture_info)
-        tracker += 1
+            if (tracker % 2 == 1):
+                file.write("Course Title: " + course_title + "\n")
+                file.write("Lecture Info: " + lecture_info + "\n")
+                
+            tracker += 1
 
-    except Exception as e:
-        print(f"Failed to process course: {e}")
+        except Exception as e:
+            print(f"Failed to process course: {e}")
+            
+# Close the driver and browser window after processing
+driver.quit()
