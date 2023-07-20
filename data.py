@@ -1,5 +1,4 @@
 # Extract Calendar information from UCD Schedule Builder
-import undetected_chromedriver as uc
 import tkinter as tk
 import requests
 from tkinter import messagebox
@@ -11,10 +10,29 @@ from selenium.webdriver.support.wait import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import Select
 
-def submit_password(driver):
-    user_password = entry.get()
+def clear_entry():
+    username_entry.delete(0, tk.END)
+    password_entry.delete(0, tk.END)
+    username_entry.focus_set()
+
+def handle_login(event=None):
+    un = username_entry.get()
+    pw = password_entry.get()
+
+    username = driver.find_element(By.ID, "username")
+    username.send_keys(un)
+
     password = driver.find_element(By.ID, "password")
-    password.send_keys(user_password)
+    password.send_keys(pw)  # Corrected variable name to 'pw'
+
+    # Submit user entry
+    driver.find_element(By.NAME, "submit").click()
+
+    wait = WebDriverWait(driver, 60)
+    wait.until(EC.url_contains('https://my.ucdavis.edu/schedulebuilder/index.cfm'))
+
+    error_msg = "Invalid credentials. Please make sure Caps Lock is not on."
+    
     root.destroy()
 
 # Step 1: Go to the URL
@@ -32,29 +50,32 @@ driver = webdriver.Chrome(service=service)
 driver.get(url)
 
 # Step 2: Login using UCD Credentials. If invalid, application access should be denied
-un = input("Please type in your username: ")
-username = driver.find_element(By.ID, "username")
-username.send_keys(un)
-
-# Create the tkinter password input window
 root = tk.Tk()
-root.title("Password Input")
-root.geometry("300x100")
+root.title('Login to UCD Schedule Builder')
+root.geometry('750x550')
+root.configure(bg='#022851')
+root.bind('<Return>', handle_login)
 
-label = tk.Label(root, text="Enter your password:")
-label.pack()
+frame = tk.Frame(bg='#022851')
+login_label = tk.Label(frame, bg='#022851', fg='#FFFFFF', text='Login using your UCD Credentials', font=("Times New Roman", 30))
+username_label = tk.Label(frame, text='Username', bg='#022851', fg='#FFFFFF', font=("Times New Roman", 16))
+password_label = tk.Label(frame, text='Passphrase', bg='#022851', fg='#FFFFFF', font=("Times New Roman", 16))
 
-entry = tk.Entry(root, show="*")
-entry.pack()
+username_entry = tk.Entry(frame, font=("Times New Roman", 16))
+password_entry = tk.Entry(frame, show="*", font=("Times New Roman", 16))
 
-button = tk.Button(root, text="Submit", command=lambda: submit_password(driver))
-button.pack()
+login_button = tk.Button(frame, text="Login", bg="#FFBF00", fg="#FFFFFF", command=handle_login, font=("Times New Roman", 16))
+
+login_label.grid(row=0, column=0, columnspan=2, sticky="news", pady=40)
+username_label.grid(row=1, column=0)
+username_entry.grid(row=1, column=1, pady=20)
+password_label.grid(row=2, column=0)
+password_entry.grid(row=2, column=1, pady=20)
+login_button.grid(row=3, column=0, columnspan=2, pady=30)
+
+frame.pack()
 
 root.mainloop()
-
-# Submit user entry
-# TODO: INCORRECT USER INPUT
-driver.find_element(By.NAME, "submit").click()
 
 wait = WebDriverWait(driver, 60)
 wait.until(EC.url_contains('https://my.ucdavis.edu/schedulebuilder/index.cfm'))
