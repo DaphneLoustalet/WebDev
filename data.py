@@ -1,6 +1,7 @@
 # Extract Calendar information from UCD Schedule Builder
 import undetected_chromedriver as uc
 import tkinter as tk
+import requests
 from tkinter import messagebox
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
@@ -16,15 +17,22 @@ def submit_password(driver):
     password.send_keys(user_password)
     root.destroy()
 
-un = input("Please type in your username: ")
-
 # Step 1: Go to the URL
 url = "https://my.ucdavis.edu/schedulebuilder/"
+
+# Check if URL is valid
+response = requests.get(url)
+if response.status_code == 404:
+    raise ValueError('Requested resource not found (404 Not Found)')
+elif response.status_code != 200:
+    raise ValueError(f"Server returned status code: {response.status_code}")
+
 service = Service('C://Program Files//chromedriver.exe')
 driver = webdriver.Chrome(service=service)
 driver.get(url)
 
 # Step 2: Login using UCD Credentials. If invalid, application access should be denied
+un = input("Please type in your username: ")
 username = driver.find_element(By.ID, "username")
 username.send_keys(un)
 
