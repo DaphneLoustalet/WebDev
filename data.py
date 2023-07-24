@@ -85,15 +85,23 @@ wait.until(EC.url_contains('https://my.ucdavis.edu/schedulebuilder/index.cfm'))
 # Step 3: Employ Web Scrape to take information in the following manner:
 # Select the term you are searching for
 term = 'TermSelect1'
+selectname = 'termCode1'
 
 term_str = []
+options = []
 available_terms = []
 
 div_elements = driver.find_elements(By.TAG_NAME, 'div')
+select_element = driver.find_element(By.NAME, 'termCode1')
 
 for div_element in div_elements:
     if div_element.get_attribute('name') == term:
         term_str.append(div_element.text)
+
+select = Select(select_element)
+
+# Extract option values
+options = [option.get_attribute('value') for option in select.options if option.get_attribute('value')]
 
 print("Select the term you wish to view: ")
 
@@ -118,19 +126,19 @@ selected_term = input("Please input the number associated with your selection: "
 # automatically select the entry associated with the number
 # THIS WILL NEED TO UPDATE AUTOMATICALLY
 if (selected_term == "1"):
-    translated_val = 202310
+    translated_val = options[0]
 elif (selected_term == "2"):
-    translated_val = 202309
+    translated_val = options[1]
 elif (selected_term == "3"):
-    translated_val = 202308
+    translated_val = options[2]
 elif (selected_term == "4"):
-    translated_val = 202307
+    translated_val = options[3]
 elif (selected_term == "5"):
-    translated_val = 202306
+    translated_val = options[4]
 elif (selected_term == "6"):
-    translated_val = 202305
+    translated_val = options[5]
 elif (selected_term == "7"):
-    translated_val = 202303
+    translated_val = options[6]
 else:
     raise ValueError("Your term value input was invalid.")
 
