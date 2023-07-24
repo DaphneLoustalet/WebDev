@@ -116,6 +116,7 @@ selected_term = input("Please input the number associated with your selection: "
 # ERROR MANAGEMENT FOR INCORRECT ENTRIES
 
 # automatically select the entry associated with the number
+# THIS WILL NEED TO UPDATE AUTOMATICALLY
 if (selected_term == "1"):
     translated_val = 202310
 elif (selected_term == "2"):
@@ -170,10 +171,14 @@ with open("output.txt", "w") as file:
             course_details = button.find_element(By.XPATH, "./ancestor::div[@class='CourseItem gray-shadow-border clearfix']")
             course_title = course_details.find_element(By.CLASS_NAME, "classTitle").text
             lecture_info = course_details.find_element(By.XPATH, ".//div[contains(@class, 'meeting')][contains(., 'Lecture')]").text
-
+            # Find the "Final Exam" div element and extract the text
+            finals_element = course_details.find_element(By.XPATH, ".//div[contains(.//span[@class='boldTitle'], 'Final Exam:')]")
+            finals_info = finals_element.text.strip().split(": ")[1]
+            
             if (tracker % 2 == 1):
                 file.write("Course Title: " + course_title + "\n")
                 file.write("Lecture Info: " + lecture_info + "\n")
+                file.write("Finals: " + finals_info + "\n")
                 
             tracker += 1
 
