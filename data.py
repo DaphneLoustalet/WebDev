@@ -1,6 +1,8 @@
 # Extract Calendar information from UCD Schedule Builder
 import tkinter as tk
 import requests
+import json
+import PyPDF2
 from tkinter import messagebox
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
@@ -45,6 +47,7 @@ if response.status_code == 404:
 elif response.status_code != 200:
     raise ValueError(f"Server returned status code: {response.status_code}")
 
+# TODO: Automatically fetch & download driver in target area that corresponds to current Chrome version
 service = Service('C://Program Files//chromedriver.exe')
 driver = webdriver.Chrome(service=service)
 driver.get(url)
@@ -122,9 +125,9 @@ for i in range(1, len(available_terms)):
 
 selected_term = input("Please input the number associated with your selection: ")
 # ERROR MANAGEMENT FOR INCORRECT ENTRIES
+# available_terms[selected_term - 1] is the selection
 
 # automatically select the entry associated with the number
-# THIS WILL NEED TO UPDATE AUTOMATICALLY
 if (selected_term == "1"):
     translated_val = options[0]
 elif (selected_term == "2"):
@@ -158,6 +161,7 @@ buttons = driver.find_elements(By.XPATH, "//button[contains(@title, 'Show Course
 
 # formatting tracker for discarding extra and invalid entries
 tracker = 0
+course_info_list = []
 
 # Loop through the buttons and click them one by one
 with open("output.txt", "w") as file:
@@ -184,6 +188,67 @@ with open("output.txt", "w") as file:
             finals_info = finals_element.text.strip().split(": ")[1]
             
             if (tracker % 2 == 1):
+                # parse lecture_info by \n or space
+                lecture = lecture_info.split('\n')
+                finals = finals_info.split(' ')
+
+                # error checking
+                if (len(lecture) < 8 or len(finals) < 2):
+                    raise IndexError('Parsed information is not formatted properly.')
+
+                # Parse Data
+                # Get the first day of instruction for the quarter selected: available_terms[selected_term - 1]
+                # If after 2024, go to https://registrar.ucdavis.edu/calendar/web/master and download the pdf for use here
+                comparable_terms = available_terms[int(selected_term)].split(" ")
+                if (len(comparable_terms) < 10):
+                    raise IndexError('Term information is not readable')
+                compared_term = comparable_terms[7] + " " + comparable_terms[9]
+
+                # creating a pdf file object
+                pdfFileObj = open('calendar-master-2023-2024.pdf', 'rb')
+ 
+                # creating a pdf reader object
+                pdfReader = PyPDF2.PdfReader(pdfFileObj)
+
+                # creating a page object
+                pageObj = pdfReader.pages[0]
+
+                if compared_term in pageObj.extract_text():
+                    print("TRUE")
+
+                # closing the pdf file object
+                pdfFileObj.close()
+
+                # Lecture Scheduling
+                for i in range(len(lecture[2])):
+                    course_info = {
+                        "Course Title": course_title + " Lecture",
+                        "Lecture Time": lecture[1],
+                        "Lecture Day": lecture[2][i],
+                        "Lecture Location": lecture[3],
+                        "recurrence": ["RRULE:FREQ=WEEKLY;COUNT=10"]
+                    }
+                    course_info_list.append(course_info)
+                
+                # Discussion Scheduling
+                course_info = {
+                    "Course Title": course_title + " Discussion",
+                    "Discussion Time": lecture[5],
+                    "Discussion Day": lecture[6],
+                    "Discussion Location": lecture[7],
+                    "recurrence": ["RRULE:FREQ=WEEKLY;COUNT=10"]
+                }
+
+                course_info_list.append(course_info)
+
+                # Finals Scheduling
+                course_info = {
+                    "Course Title": course_title + " Finals",
+                    "Final Date": finals[0],
+                    "Final Time": finals[1] + " " + finals[2]
+                }
+
+                course_info_list.append(course_info)
                 file.write("Course Title: " + course_title + "\n")
                 file.write("Lecture Info: " + lecture_info + "\n")
                 file.write("Finals: " + finals_info + "\n")
@@ -191,7 +256,11 @@ with open("output.txt", "w") as file:
             tracker += 1
 
         except Exception as e:
-            print(f"Failed to process course: {e}")
+            print(f"Failed to process course: {e}") 
+
+    # Write the course information list to a JSON file
+    with open("output.json", "w") as json_file:
+        json.dump(course_info_list, json_file, indent=4)
             
 # Close the driver and browser window after processing
 driver.quit()
