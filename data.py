@@ -37,6 +37,33 @@ def handle_login(event=None):
     
     root.destroy()
 
+# Reformat time
+def reformat_time(old_time):
+    tokens = old_time.split(' ')
+    
+    if (tokens[0] == ''):
+        tokens.pop(0)
+    
+    time = tokens[0]
+          
+    if (tokens[1] == 'PM' and time.split(':')[0] != '12'):
+        times = tokens[0].split(':')
+        new_time = int(times[0])
+        new_time += 12
+        time = str(new_time) + ':' + str(times[1])
+    
+    return time
+
+# Convert time to PST
+def convert_time(old_time):
+    times = old_time.split('-')
+    start_time = times[0]
+    start_time = reformat_time(start_time)
+    end_time = times[1]
+    end_time = reformat_time(end_time)
+
+    return start_time, end_time
+
 # Step 1: Go to the URL
 url = "https://my.ucdavis.edu/schedulebuilder/"
 
@@ -193,6 +220,7 @@ with open("output.txt", "w") as file:
                 finals = finals_info.split(' ')
 
                 # error checking
+                # Account for more scenarios with more functions
                 if (len(lecture) < 8 or len(finals) < 2):
                     raise IndexError('Parsed information is not formatted properly.')
 
@@ -221,19 +249,31 @@ with open("output.txt", "w") as file:
 
                 # Lecture Scheduling
                 for i in range(len(lecture[2])):
+                    # convert time to PST
+                    conversion = convert_time(lecture[1])
+                    start_time = conversion[0]
+                    end_time = conversion[1]
+
                     course_info = {
-                        "Course Title": course_title + " Lecture",
-                        "Lecture Time": lecture[1],
+                        "summary": course_title + " Lecture",
+                        "Lecture Start": start_time + ':00-07:00',
+                        "Lecture End": end_time + ':00-07:00',
                         "Lecture Day": lecture[2][i],
-                        "Lecture Location": lecture[3],
+                        "location": lecture[3],
                         "recurrence": ["RRULE:FREQ=WEEKLY;COUNT=10"]
                     }
                     course_info_list.append(course_info)
                 
                 # Discussion Scheduling
+                # convert time to PST
+                conversion = convert_time(lecture[5])
+                start_time = conversion[0]
+                end_time = conversion[1]
+
                 course_info = {
-                    "Course Title": course_title + " Discussion",
-                    "Discussion Time": lecture[5],
+                    "summary": course_title + " Discussion",
+                    "Discussion Start": start_time + ':00-07:00',
+                    "Discussion End": end_time + ':00-07:00',
                     "Discussion Day": lecture[6],
                     "Discussion Location": lecture[7],
                     "recurrence": ["RRULE:FREQ=WEEKLY;COUNT=10"]
