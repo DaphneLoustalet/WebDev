@@ -346,13 +346,19 @@ def get_results(buttons, driver, available_terms, selected_term):
                 finals_info = finals_element.text.strip().split(": ")[1]
                 
                 if (tracker % 2 == 1):
+                    discussion_session = True
+
                     # parse lecture_info by \n or space
                     lecture = lecture_info.split('\n')
                     finals = finals_info.split(' ')
 
                     # error checking
+                    if len(lecture) < 8:
+                        discussion_session = False
+                
                     # Account for more scenarios with more functions
-                    if (len(lecture) < 8 or len(finals) < 2):
+                    if ((len(lecture) < 8 or len(finals) < 2) and discussion_session):
+                        # if discussion info is simply not available
                         raise IndexError('Parsed information is not formatted properly.')
 
                     # Parse Data
@@ -403,22 +409,42 @@ def get_results(buttons, driver, available_terms, selected_term):
                     
                     # Discussion Scheduling
                     # convert time to PST
-                    conversion = convert_time(lecture[5])
-                    start_time = conversion[0]
-                    end_time = conversion[1]
-                    discussion_date = calculateDate(quarter_start_day, quarter_start_date, lecture[6], comparable_terms[9])
+                    if (discussion_session):
+                        conversion = convert_time(lecture[5])
+                        start_time = conversion[0]
+                        end_time = conversion[1]
+                        discussion_date = calculateDate(quarter_start_day, quarter_start_date, lecture[6], comparable_terms[9])
 
-                    course_info = {
-                        "summary": course_title + " Discussion",
-                        "Discussion Start": start_time + ':00-07:00',
-                        "Discussion End": end_time + ':00-07:00',
-                        "Discussion Day": discussion_date + 'T' + lecture[6],
-                        "Discussion Location": lecture[7],
-                        "recurrence": ["RRULE:FREQ=WEEKLY;COUNT=10"]
-                    }
+                        course_info = {
+                            "summary": course_title + " Discussion",
+                            "location": lecture[7],
+                            "description": "discussion",
+                            "start": {
+                                "dateTime": discussion_date + 'T' + start_time + ':00-07:00',
+                                "timeZone": "America/Los_Angeles"
+                            },
+                            "end": {
+                                "dateTime": discussion_date + 'T' + end_time + ':00-07:00',
+                                "timeZone": "America/Los_Angeles"
+                            },
+                            "recurrence": ["RRULE:FREQ=WEEKLY;COUNT=10"],
+                            "attendees": [
+                            { "email": primary_email },
+                            { "email": secondary_email }
+                        ],
+                        # I'm not sure what the minutes part below means, but will prompt below
+                        "reminders": {
+                            "useDefault": False,
+                            "overrides": [
+                            { "method": "email", "minutes": 1440 },
+                            { "method": "popup", "minutes": 10 }
+                            ]
+                        }
+                        }
 
-                    course_info_list.append(course_info)
+                        course_info_list.append(course_info)
 
+                    # Finals Scheduling
                     finish_times = finals[1].split(':')
                     prefix = finals[2]
                     finish_time = int(finish_times[0]) + 2
@@ -432,12 +458,21 @@ def get_results(buttons, driver, available_terms, selected_term):
                 
                     final_finish = str(finish_time) + ':' + finish_times[1]
 
+                    date_str = finals[0].split('/')
+                    year = date_str[2]
+                    month = date_str[0]
+                    day = date_str[1]
+
+                    date = day + '-' + month + '-' + year
+
                     # Finals Scheduling
                     course_info = {
-                        "Course Title": course_title + " Finals",
+                        "summary": course_title + " Finals",
+                        "location": "",
+                        "description": "finals",
                         "Final Date": finals[0],
-                        "Final Time": reformat_time(finals[1] + " " + finals[2]),
-                        "Finals End": reformat_time(final_finish + " " + prefix),
+                        "Final Time": date + "T" + reformat_time(finals[1] + " " + finals[2]),
+                        "Finals End": date + "T" + reformat_time(final_finish + " " + prefix),
                     }
 
                     course_info_list.append(course_info)
