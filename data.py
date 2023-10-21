@@ -2,7 +2,7 @@
 import tkinter as tk
 import requests
 import json
-import PyPDF2
+import PyPDF2, re
 from tkinter import messagebox
 from selenium import webdriver
 from selenium.webdriver.common.action_chains import ActionChains
@@ -193,10 +193,133 @@ def select_terms(driver):
 
     return buttons, available_terms, selected_term
 
+# PDF Parser 
+# Read contents of PDF File into a list, tokenized by word 
+# Sort through the list for the keyword
+# Read contents immediately after keyword: we are looking for 'Instruction begins'
+def parsePDF(compared_term):
+    # Open the PDF file
+    pdfFileObj = open('calendar-master-2023-2024.pdf', 'rb')
+    pdfReader = PyPDF2.PdfReader(pdfFileObj)
+
+    # Extract text from all pages and concatenate it into one string
+    text = ""
+    for page in pdfReader.pages:
+        text += page.extract_text()
+
+    # Tokenize the text into words (split by space or newline)
+    words = re.split(r'\s+|\\n', text)
+
+    # Filter out empty strings and other non-word characters
+    words = [word for word in words if re.match(r'^\w', word)]
+
+    # split up compared term into a list for comparison
+    compared_terms = compared_term.split(' ')
+
+    # when scanning the file, keep a boolean value that tracks if the compared term has been passed yet
+    scan = False
+
+    for i in range(len(words) - 4):
+        if (words[i] == compared_terms[0] and words[i + 1] == compared_terms[1]):
+            scan = True
+        if (scan and words[i] == 'Instruction' and words[i + 1] == 'Begins'):
+            start_day = words[i + 2]
+            start_date = words[i + 3]
+            break
+
+    # Close the PDF file
+    pdfFileObj.close()
+
+    # the keyword was not found in the scan
+    if (scan == False):
+        raise ValueError('Could not find your selection in the current PDF. Try going to https://registrar.ucdavis.edu/calendar/web/master and downloading the latest version into your working repository.')
+
+    return start_day, start_date
+
+def daysToVals(quarter_start_day):
+    if (quarter_start_day == 'M'):
+        start_day = 1
+    elif (quarter_start_day == 'T'):
+        start_day = 2
+    elif (quarter_start_day == 'W'):
+        start_day = 3
+    elif (quarter_start_day == 'R'):
+        start_day = 4
+    elif (quarter_start_day == 'F'):
+        start_day = 5
+    else:
+        start_day = 0
+    
+    return start_day
+
+def calculateDate(quarter_start_day, quarter_start_date, lecture_start_day, year):
+    # Convert the days into values
+    start_day = daysToVals(quarter_start_day)
+    target_day = daysToVals(lecture_start_day)
+
+    # Take the difference
+    if (target_day > start_day):
+        difference = target_day - start_day
+    else:
+        difference = 7 - start_day - target_day
+    
+    date_vals = quarter_start_date.split('/')
+    day = date_vals[1]
+    month = date_vals[0]
+
+    # Add difference to date
+
+    # February
+    if (int(day) + difference > 29 and month == '2' and int(year) % 4 == 0):
+        # Leap Year
+        month = '3'
+        overlap = difference - (29 - int(day))
+        day = str(overlap)
+
+    elif (int(day) + difference > 28 and month == '2'):
+        month = '3'
+        overlap = difference - (28 - int(day))
+        day = str(overlap)
+    
+    # 30 Day Months: April (4), June (6), September (9), November (11)
+    elif (int(day) + difference > 30 and (month == '4' or month == '6' or month == '9' or month == '11')):
+        month = int(month) + 1
+        month = str(month)
+
+        overlap = difference - (30 - int(day))
+        day = str(overlap)
+
+    # 31 Day Months
+    elif (int(day) + difference > 31 and (month == '1' or month == '3' or month == '5' or month == '7' or month == '8' or month == '10' or month == '12')):
+        month = int(month) + 1
+        month = str(month)
+
+        overlap = difference - (31 - int(day))
+        day = str(overlap)
+
+        # December
+        if (month == '12'):
+            year = int(year) + 1
+            year = str(year)
+
+    # Simply add Difference
+    else:
+        day = int(day) + difference
+        day = str(day)
+
+    date = year + '-' + month + '-' + day
+
+    return date
+
 def get_results(buttons, driver, available_terms, selected_term):
     # formatting tracker for discarding extra and invalid entries
     tracker = 0
     course_info_list = []
+    # Prompt users for email entries
+    primary_email = input("Please enter in an email address: ")
+    secondary_email = input("Enter in a secondary email. If you don't have one, just press Enter: ")
+
+    # TODO: Look at classes with 1 and 3 units that may not have discussion sections or multiple lectures
 
     # Loop through the buttons and click them one by one
     with open("output.txt", "w") as file:
@@ -240,20 +363,7 @@ def get_results(buttons, driver, available_terms, selected_term):
                         raise IndexError('Term information is not readable')
                     compared_term = comparable_terms[7] + " " + comparable_terms[9]
 
-                    # creating a pdf file object
-                    pdfFileObj = open('calendar-master-2023-2024.pdf', 'rb')
-    
-                    # creating a pdf reader object
-                    pdfReader = PyPDF2.PdfReader(pdfFileObj)
-
-                    # creating a page object
-                    pageObj = pdfReader.pages[0]
-
-                    if compared_term in pageObj.extract_text():
-                        print("TRUE")
-
-                    # closing the pdf file object
-                    pdfFileObj.close()
+                    quarter_start_day, quarter_start_date = parsePDF(compared_term)
 
                     # Lecture Scheduling
                     for i in range(len(lecture[2])):
@@ -261,14 +371,33 @@ def get_results(buttons, driver, available_terms, selected_term):
                         conversion = convert_time(lecture[1])
                         start_time = conversion[0]
                         end_time = conversion[1]
+                        lecture_date = calculateDate(quarter_start_day, quarter_start_date, lecture[2][i], comparable_terms[9])
 
                         course_info = {
                             "summary": course_title + " Lecture",
-                            "Lecture Start": start_time + ':00-07:00',
-                            "Lecture End": end_time + ':00-07:00',
-                            "Lecture Day": lecture[2][i],
                             "location": lecture[3],
-                            "recurrence": ["RRULE:FREQ=WEEKLY;COUNT=10"]
+                            "description": "lecture",
+                            "start": {
+                                "dateTime": lecture_date + 'T' + start_time + ':00-07:00',
+                                "timeZone": "America/Los_Angeles"
+                            },
+                            "end": {
+                                "dateTime": lecture_date + 'T' + end_time + ':00-07:00',
+                                "timeZone": "America/Los_Angeles"
+                            },
+                            "recurrence": ["RRULE:FREQ=WEEKLY;COUNT=10"],
+                            "attendees": [
+                            { "email": primary_email },
+                            { "email": secondary_email }
+                        ],
+                        # I'm not sure what the minutes part below means, but will prompt below
+                        "reminders": {
+                            "useDefault": False,
+                            "overrides": [
+                            { "method": "email", "minutes": 1440 },
+                            { "method": "popup", "minutes": 10 }
+                            ]
+                        }
                         }
                         course_info_list.append(course_info)
                     
@@ -277,23 +406,38 @@ def get_results(buttons, driver, available_terms, selected_term):
                     conversion = convert_time(lecture[5])
                     start_time = conversion[0]
                     end_time = conversion[1]
+                    discussion_date = calculateDate(quarter_start_day, quarter_start_date, lecture[6], comparable_terms[9])
 
                     course_info = {
                         "summary": course_title + " Discussion",
                         "Discussion Start": start_time + ':00-07:00',
                         "Discussion End": end_time + ':00-07:00',
-                        "Discussion Day": lecture[6],
+                        "Discussion Day": discussion_date + 'T' + lecture[6],
                         "Discussion Location": lecture[7],
                         "recurrence": ["RRULE:FREQ=WEEKLY;COUNT=10"]
                     }
 
                     course_info_list.append(course_info)
 
+                    finish_times = finals[1].split(':')
+                    prefix = finals[2]
+                    finish_time = int(finish_times[0]) + 2
+
+                    # Switch am and pm after noon and midnight
+                    if (finish_time >= 12 and int(finish_times[0]) < 12):
+                        if (prefix == 'AM'):
+                            prefix == 'PM'
+                        else:
+                            prefix == 'AM'
+                
+                    final_finish = str(finish_time) + ':' + finish_times[1]
+
                     # Finals Scheduling
                     course_info = {
                         "Course Title": course_title + " Finals",
                         "Final Date": finals[0],
-                        "Final Time": finals[1] + " " + finals[2]
+                        "Final Time": reformat_time(finals[1] + " " + finals[2]),
+                        "Finals End": reformat_time(final_finish + " " + prefix),
                     }
 
                     course_info_list.append(course_info)
@@ -312,11 +456,6 @@ def get_results(buttons, driver, available_terms, selected_term):
                 
     # Close the driver and browser window after processing
     driver.quit()
-
-# PDF Parser 
-# Read contents of PDF File into a list, tokenized by word 
-# Sort through the list for the keyword
-# Read contents immediately after keyword: we are looking for 'Instruction begins'
 
 def main():
     url = get_URL()
